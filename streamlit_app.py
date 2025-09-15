@@ -1,20 +1,36 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import os
 
+# -----------------------
+# Streamlit page settings
+# -----------------------
 st.set_page_config(page_title="Scholarship Eligibility Predictor", layout="wide")
 
-# Load trained model
+# -----------------------
+# Load trained model safely
+# -----------------------
 @st.cache_resource
 def load_model():
-    return joblib.load('models/best_model.joblib')
+    # Build absolute path to model (works both locally and on Streamlit Cloud)
+    model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'best_model.joblib')
+    if not os.path.exists(model_path):
+        st.error("❌ Model file not found. Please ensure 'models/best_model.joblib' exists.")
+        st.stop()
+    return joblib.load(model_path)
 
 model = load_model()
 
+# -----------------------
+# App Title
+# -----------------------
 st.title("🎓 Scholarship Eligibility Prediction")
 st.write("Enter student details to predict scholarship eligibility")
 
-# --- Form for user input ---
+# -----------------------
+# User Input Form
+# -----------------------
 with st.form("student_form"):
     st.subheader("Student Information")
 
@@ -35,7 +51,9 @@ with st.form("student_form"):
 
     submitted = st.form_submit_button("Predict")
 
-# --- Make prediction ---
+# -----------------------
+# Make prediction
+# -----------------------
 if submitted:
     # Build dataframe matching training columns
     X_new = pd.DataFrame([{
@@ -51,8 +69,12 @@ if submitted:
         'IncomeNum': income_num
     }])
 
-    pred = model.predict(X_new)[0]
-    prob = model.predict_proba(X_new)[0][1]
+    try:
+        pred = model.predict(X_new)[0]
+        prob = model.predict_proba(X_new)[0][1]
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
+        st.stop()
 
     st.subheader("Prediction Result")
     if pred == 1:
@@ -60,5 +82,10 @@ if submitted:
     else:
         st.error(f"❌ Not Eligible for Scholarship (Probability: {prob:.2f})")
 
+# -----------------------
+# Footer
+# -----------------------
 st.write("---")
 st.caption("Built with Streamlit + Scikit-learn | Scholarship Eligibility Project")
+
+
